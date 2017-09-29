@@ -22,7 +22,6 @@ Resources:
 # Properties describe features of each of the Resources. Some have default values wheter or not you include them.
 # See http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc.html for EC2
 # Types are the objects AWS knows about, the Names are mostly up to you within reason.
-
     Properties:
       CidrBlock: 10.100.0.0/16
       EnableDnsHostnames: true
@@ -31,11 +30,11 @@ Resources:
         Value: rp's VPC - Wow
         
   InternetGateway:
-  Type: AWS::EC2::InternetGateway
-  Properties:
-    Tags:
-    - Key: Name
-      Value: rp's gateway
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: rp's gateway
     
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
