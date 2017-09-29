@@ -1,0 +1,46 @@
+#Read the docs on template anatomy http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/template-anatomy.html - Resources is the only required piece of the template. 
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: Deploy a smaller VPC
+
+# Define the resources. The resources are each  of the items in your VPC. 
+# Resources are referenced by other dependent resources. Create a subnet in a VPC and that subnet will have to reference the VPC. It does this by ID. 
+# If you are deploying into an existing VPC, you reference that VPC ID. If the VPC will be created by your CF template, the !Ref <RESOURCE> gets that ID automagically. More on that later. 
+
+#Declare resources - this is everything you will deploy.
+Resources:
+#IF you were doing more than one VPC, you would label these uniquely. 
+# Standard format is:
+# Name:
+#   Properties: Values of Properties
+#     
+
+
+  VPC:
+#Each resource has a type. http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html
+    Type: AWS::EC2::VPC
+# Properties describe features of each of the Resources. Some have default values wheter or not you include them.
+# See http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc.html for EC2
+# Types are the objects AWS knows about, the Names are mostly up to you within reason.
+
+    Properties:
+      CidrBlock: 10.100.0.0/16
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Name
+        Value: rp's VPC - Wow
+        
+  InternetGateway:
+  Type: AWS::EC2::InternetGateway
+  Properties:
+    Tags:
+    - Key: Name
+      Value: rp's gateway
+    
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+    
+    
