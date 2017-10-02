@@ -1,0 +1,1 @@
+These are the samples from US-EAST-1. I converted them to yaml because it's easier on the eyes. As of the day this was posted, they are available for all regions (here)[http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-sample-templates.html].
