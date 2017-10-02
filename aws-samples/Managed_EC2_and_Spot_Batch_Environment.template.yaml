@@ -1,0 +1,212 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS CloudFormation Sample Template Managed High Priority and Low Priority
+  Batch Job Queue: This template demonstrates the usage of a high and low priority
+  batch job queues. It uses simple EC2 and Spot style Compute Environments.  **WARNING**
+  You will be billed for the AWS resources used if you create a stack from this template.'
+Outputs:
+  HighPriorityJobQueueArn:
+    Value:
+      Ref: HighPriorityJobQueue
+  LowPriorityJobQueueArn:
+    Value:
+      Ref: LowPriorityJobQueue
+  OnDemandComputeEnvironmentArn:
+    Value:
+      Ref: OnDemandComputeEnvironment
+  ProdApplicationJobArn:
+    Value:
+      Ref: ProdApplicationJob
+  SpotComputeEnvironmentArn:
+    Value:
+      Ref: SpotComputeEnvironment
+  TestApplicationJobArn:
+    Value:
+      Ref: TestApplicationJob
+Resources:
+  BatchServiceRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: batch.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole
+    Type: AWS::IAM::Role
+  EcsInstanceRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: ec2.amazonaws.com
+          Sid: ''
+        Version: '2008-10-17'
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+    Type: AWS::IAM::Role
+  HighPriorityJobQueue:
+    Properties:
+      ComputeEnvironmentOrder:
+      - ComputeEnvironment:
+          Ref: OnDemandComputeEnvironment
+        Order: 1
+      - ComputeEnvironment:
+          Ref: SpotComputeEnvironment
+        Order: 2
+      Priority: 1
+    Type: AWS::Batch::JobQueue
+  IamInstanceProfile:
+    Properties:
+      Roles:
+      - Ref: EcsInstanceRole
+    Type: AWS::IAM::InstanceProfile
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  LowPriorityJobQueue:
+    Properties:
+      ComputeEnvironmentOrder:
+      - ComputeEnvironment:
+          Ref: SpotComputeEnvironment
+        Order: 1
+      JobQueueName: LowPriorityBatchCloudformationJobqueue
+      Priority: 2
+    Type: AWS::Batch::JobQueue
+  OnDemandComputeEnvironment:
+    Properties:
+      ComputeResources:
+        DesiredvCpus: 0
+        InstanceRole:
+          Ref: IamInstanceProfile
+        InstanceTypes:
+        - optimal
+        MaxvCpus: 64
+        MinvCpus: 0
+        SecurityGroupIds:
+        - Ref: SecurityGroup
+        Subnets:
+        - Ref: Subnet
+        Type: EC2
+      ServiceRole:
+        Ref: BatchServiceRole
+      Type: MANAGED
+    Type: AWS::Batch::ComputeEnvironment
+  ProdApplicationJob:
+    Properties:
+      ContainerProperties:
+        Command:
+        - echo
+        - Hello World, I am a high priority job
+        Image:
+          Fn::Join:
+          - ''
+          - - 137112412989.dkr.ecr.
+            - Ref: AWS::Region
+            - .amazonaws.com/amazonlinux:latest
+        Memory: 2000
+        Vcpus: 2
+      RetryStrategy:
+        Attempts: 1
+      Type: container
+    Type: AWS::Batch::JobDefinition
+  Route:
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: InternetGateway
+      RouteTableId:
+        Ref: RouteTable
+    Type: AWS::EC2::Route
+  RouteTable:
+    Properties:
+      VpcId:
+        Ref: VPC
+    Type: AWS::EC2::RouteTable
+  SecurityGroup:
+    Properties:
+      GroupDescription: Security Group for the EC2 instances launched into the VPC
+        by Batch
+      VpcId:
+        Ref: VPC
+    Type: AWS::EC2::SecurityGroup
+  SpotComputeEnvironment:
+    Properties:
+      ComputeResources:
+        BidPercentage: 40
+        DesiredvCpus: 0
+        InstanceRole:
+          Ref: IamInstanceProfile
+        InstanceTypes:
+        - optimal
+        MaxvCpus: 64
+        MinvCpus: 0
+        SecurityGroupIds:
+        - Ref: SecurityGroup
+        SpotIamFleetRole:
+          Ref: SpotIamFleetRole
+        Subnets:
+        - Ref: Subnet
+        Type: SPOT
+      ServiceRole:
+        Ref: BatchServiceRole
+      Type: MANAGED
+    Type: AWS::Batch::ComputeEnvironment
+  SpotIamFleetRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: spotfleet.amazonaws.com
+          Sid: ''
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetRole
+    Type: AWS::IAM::Role
+  Subnet:
+    Properties:
+      CidrBlock: 10.0.0.0/24
+      MapPublicIpOnLaunch: 'True'
+      VpcId:
+        Ref: VPC
+    Type: AWS::EC2::Subnet
+  SubnetRouteTableAssociation:
+    Properties:
+      RouteTableId:
+        Ref: RouteTable
+      SubnetId:
+        Ref: Subnet
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  TestApplicationJob:
+    Properties:
+      ContainerProperties:
+        Command:
+        - echo
+        - Hello World, I am a low priority job
+        Image:
+          Fn::Join:
+          - ''
+          - - 137112412989.dkr.ecr.
+            - Ref: AWS::Region
+            - .amazonaws.com/amazonlinux:latest
+        Memory: 2000
+        Vcpus: 2
+      RetryStrategy:
+        Attempts: 1
+      Type: container
+    Type: AWS::Batch::JobDefinition
+  VPC:
+    Properties:
+      CidrBlock: 10.0.0.0/16
+    Type: AWS::EC2::VPC
+  VPCGatewayAttachment:
+    Properties:
+      InternetGatewayId:
+        Ref: InternetGateway
+      VpcId:
+        Ref: VPC
+    Type: AWS::EC2::VPCGatewayAttachment

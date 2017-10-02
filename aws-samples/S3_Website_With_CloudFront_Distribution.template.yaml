@@ -1,0 +1,127 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS CloudFormation Sample Template S3_Website_With_CloudFront_Distribution:
+  Sample template showing how to create a website with a custom DNS name, hosted on
+  Amazon S3 and served via Amazone CloudFront. It assumes you already have a Hosted
+  Zone registered with Amazon Route 53. **WARNING** This template creates an Amazon
+  Route 53 DNS record, an S3 bucket and a CloudFront distribution. You will be billed
+  for the AWS resources used if you create a stack from this template.'
+Mappings:
+  Region2S3WebsiteSuffix:
+    ap-northeast-1:
+      Suffix: .s3-website-ap-northeast-1.amazonaws.com
+    ap-northeast-2:
+      Suffix: .s3-website-ap-northeast-2.amazonaws.com
+    ap-south-1:
+      Suffix: .s3-website-ap-south-1.amazonaws.com
+    ap-southeast-1:
+      Suffix: .s3-website-ap-southeast-1.amazonaws.com
+    ap-southeast-2:
+      Suffix: .s3-website-ap-southeast-2.amazonaws.com
+    ca-central-1:
+      Suffix: .s3-website-ca-central-1.amazonaws.com
+    cn-north-1:
+      Suffix: .s3-website.cn-north-1.amazonaws.com.cn
+    eu-central-1:
+      Suffix: .s3-website-eu-central-1.amazonaws.com
+    eu-west-1:
+      Suffix: .s3-website-eu-west-1.amazonaws.com
+    eu-west-2:
+      Suffix: .s3-website-eu-west-2.amazonaws.com
+    sa-east-1:
+      Suffix: .s3-website-sa-east-1.amazonaws.com
+    us-east-1:
+      Suffix: .s3-website-us-east-1.amazonaws.com
+    us-east-2:
+      Suffix: .s3-website-us-east-2.amazonaws.com
+    us-west-1:
+      Suffix: .s3-website-us-west-1.amazonaws.com
+    us-west-2:
+      Suffix: .s3-website-us-west-2.amazonaws.com
+Outputs:
+  BucketName:
+    Description: Name of S3 bucket to hold website content
+    Value:
+      Ref: S3BucketForWebsiteContent
+  WebsiteURL:
+    Description: The URL of the newly created website
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Ref: WebsiteDNSName
+Parameters:
+  HostedZone:
+    AllowedPattern: (?!-)[a-zA-Z0-9-.]{1,63}(?<!-)
+    ConstraintDescription: must be a valid DNS zone name.
+    Description: The DNS name of an existing Amazon Route 53 hosted zone
+    Type: String
+Resources:
+  S3BucketForWebsiteContent:
+    Properties:
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        ErrorDocument: error.html
+        IndexDocument: index.html
+    Type: AWS::S3::Bucket
+  WebsiteCDN:
+    Properties:
+      DistributionConfig:
+        Aliases:
+        - Fn::Join:
+          - ''
+          - - Ref: AWS::StackName
+            - Ref: AWS::AccountId
+            - .
+            - Ref: AWS::Region
+            - .
+            - Ref: HostedZone
+        Comment: CDN for S3-backed website
+        DefaultCacheBehavior:
+          ForwardedValues:
+            QueryString: 'true'
+          TargetOriginId: only-origin
+          ViewerProtocolPolicy: allow-all
+        DefaultRootObject: index.html
+        Enabled: 'true'
+        Origins:
+        - CustomOriginConfig:
+            HTTPPort: '80'
+            HTTPSPort: '443'
+            OriginProtocolPolicy: http-only
+          DomainName:
+            Fn::Join:
+            - ''
+            - - Ref: S3BucketForWebsiteContent
+              - Fn::FindInMap:
+                - Region2S3WebsiteSuffix
+                - Ref: AWS::Region
+                - Suffix
+          Id: only-origin
+    Type: AWS::CloudFront::Distribution
+  WebsiteDNSName:
+    Properties:
+      Comment: CNAME redirect custom name to CloudFront distribution
+      HostedZoneName:
+        Fn::Join:
+        - ''
+        - - Ref: HostedZone
+          - .
+      Name:
+        Fn::Join:
+        - ''
+        - - Ref: AWS::StackName
+          - Ref: AWS::AccountId
+          - .
+          - Ref: AWS::Region
+          - .
+          - Ref: HostedZone
+      ResourceRecords:
+      - Fn::Join:
+        - ''
+        - - http://
+          - Fn::GetAtt:
+            - WebsiteCDN
+            - DomainName
+      TTL: '900'
+      Type: CNAME
+    Type: AWS::Route53::RecordSet

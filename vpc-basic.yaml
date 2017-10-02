@@ -48,7 +48,7 @@ Resources:
   PublicSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref Vpc
+      VpcId: !Ref VPC
       CidrBlock: 10.100.1.0/24
       AvailabilityZone: !Select
         - '0'
@@ -60,7 +60,7 @@ Resources:
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref Vpc
+      VpcId: !Ref VPC
       Tags:
         - Key: Name
           Value: Public Route Table

@@ -1,0 +1,136 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS CloudFormation Sample Template Managed Single Batch Job Queue: This
+  template demonstrates the usage of simple Job Queue and EC2 style Compute Environment.  **WARNING**
+  You will be billed for the AWS resources used if you create a stack from this template.'
+Outputs:
+  ComputeEnvironmentArn:
+    Value:
+      Ref: ComputeEnvironment
+  JobDefinitionArn:
+    Value:
+      Ref: JobDefinition
+  JobQueueArn:
+    Value:
+      Ref: JobQueue
+Resources:
+  BatchServiceRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: batch.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole
+    Type: AWS::IAM::Role
+  ComputeEnvironment:
+    Properties:
+      ComputeResources:
+        DesiredvCpus: 0
+        InstanceRole:
+          Ref: IamInstanceProfile
+        InstanceTypes:
+        - optimal
+        MaxvCpus: 64
+        MinvCpus: 0
+        SecurityGroupIds:
+        - Ref: SecurityGroup
+        Subnets:
+        - Ref: Subnet
+        Type: EC2
+      ServiceRole:
+        Ref: BatchServiceRole
+      Type: MANAGED
+    Type: AWS::Batch::ComputeEnvironment
+  EcsInstanceRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: ec2.amazonaws.com
+          Sid: ''
+        Version: '2008-10-17'
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+    Type: AWS::IAM::Role
+  IamInstanceProfile:
+    Properties:
+      Roles:
+      - Ref: EcsInstanceRole
+    Type: AWS::IAM::InstanceProfile
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  JobDefinition:
+    Properties:
+      ContainerProperties:
+        Command:
+        - echo
+        - Hello world
+        Image:
+          Fn::Join:
+          - ''
+          - - 137112412989.dkr.ecr.
+            - Ref: AWS::Region
+            - .amazonaws.com/amazonlinux:latest
+        Memory: 2000
+        Vcpus: 2
+      RetryStrategy:
+        Attempts: 1
+      Type: container
+    Type: AWS::Batch::JobDefinition
+  JobQueue:
+    Properties:
+      ComputeEnvironmentOrder:
+      - ComputeEnvironment:
+          Ref: ComputeEnvironment
+        Order: 1
+      Priority: 1
+    Type: AWS::Batch::JobQueue
+  Route:
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: InternetGateway
+      RouteTableId:
+        Ref: RouteTable
+    Type: AWS::EC2::Route
+  RouteTable:
+    Properties:
+      VpcId:
+        Ref: VPC
+    Type: AWS::EC2::RouteTable
+  SecurityGroup:
+    Properties:
+      GroupDescription: EC2 Security Group for instances launched in the VPC by Batch
+      VpcId:
+        Ref: VPC
+    Type: AWS::EC2::SecurityGroup
+  Subnet:
+    Properties:
+      CidrBlock: 10.0.0.0/24
+      MapPublicIpOnLaunch: 'True'
+      VpcId:
+        Ref: VPC
+    Type: AWS::EC2::Subnet
+  SubnetRouteTableAssociation:
+    Properties:
+      RouteTableId:
+        Ref: RouteTable
+      SubnetId:
+        Ref: Subnet
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  VPC:
+    Properties:
+      CidrBlock: 10.0.0.0/16
+    Type: AWS::EC2::VPC
+  VPCGatewayAttachment:
+    Properties:
+      InternetGatewayId:
+        Ref: InternetGateway
+      VpcId:
+        Ref: VPC
+    Type: AWS::EC2::VPCGatewayAttachment

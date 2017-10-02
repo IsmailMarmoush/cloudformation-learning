@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS CloudFormation Sample Template NetworkLoadBalancer: Create a network
+  load balanced in an existing Virtual Private Cloud (VPC). **WARNING** This template
+  creates one or more Amazon EC2 instances and Network Load Balancer. You will be
+  billed for the AWS resources used if you create a stack from this template.'
+Outputs:
+  CanonicalHostedZoneId:
+    Description: CanonicalHostedZoneId of LB
+    Value:
+      Fn::GetAtt:
+      - NetworkLoadBalancer
+      - CanonicalHostedZoneID
+  DNSName:
+    Description: DnsName of LB
+    Value:
+      Fn::GetAtt:
+      - NetworkLoadBalancer
+      - DNSName
+  FirstAllocationId:
+    Description: AllocationId of LB SubnetMapping
+    Value:
+      Fn::GetAtt:
+      - FirstEIP
+      - AllocationId
+  LoadBalancerFullName:
+    Description: LoadBalancerFullName of LB
+    Value:
+      Fn::GetAtt:
+      - NetworkLoadBalancer
+      - LoadBalancerFullName
+  LoadBalancerName:
+    Description: LoadBalancerName of LB
+    Value:
+      Fn::GetAtt:
+      - NetworkLoadBalancer
+      - LoadBalancerName
+  SecondAllocationId:
+    Description: AllocationId of LB SubnetMapping
+    Value:
+      Fn::GetAtt:
+      - SecondEIP
+      - AllocationId
+  SecurityGroups:
+    Description: SecurityGroups of LB
+    Value:
+      Fn::Join:
+      - ', '
+      - Fn::GetAtt:
+        - NetworkLoadBalancer
+        - SecurityGroups
+Parameters:
+  Subnets:
+    ConstraintDescription: must be a list of at least two existing subnets associated
+      with at least two different availability zones. They should be residing in the
+      selected Virtual Private Cloud.
+    Description: The list of SubnetIds in your Virtual Private Cloud (VPC)
+    Type: List<AWS::EC2::Subnet::Id>
+  VpcId:
+    ConstraintDescription: must be the VPC Id of an existing Virtual Private Cloud.
+      Outbound traffic for the default security group associated with this VPC should
+      be enabled.
+    Description: VpcId of your existing Virtual Private Cloud (VPC)
+    Type: AWS::EC2::VPC::Id
+Resources:
+  FirstEIP:
+    Properties:
+      Domain: vpc
+    Type: AWS::EC2::EIP
+  LoadBalancerSecurityGroup:
+    Properties:
+      GroupDescription: Enable HTTP access on port 80
+      SecurityGroupEgress:
+      - CidrIp: 0.0.0.0/0
+        FromPort: '80'
+        IpProtocol: tcp
+        ToPort: '80'
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        FromPort: '80'
+        IpProtocol: tcp
+        ToPort: '80'
+      VpcId:
+        Ref: VpcId
+    Type: AWS::EC2::SecurityGroup
+  NetworkLoadBalancer:
+    Properties:
+      IpAddressType: ipv4
+      SubnetMappings:
+      - AllocationId:
+          Fn::GetAtt:
+          - FirstEIP
+          - AllocationId
+        SubnetId:
+          Fn::Select:
+          - 0
+          - Ref: Subnets
+      - AllocationId:
+          Fn::GetAtt:
+          - SecondEIP
+          - AllocationId
+        SubnetId:
+          Fn::Select:
+          - 1
+          - Ref: Subnets
+      Type: network
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+  SecondEIP:
+    Properties:
+      Domain: vpc
+    Type: AWS::EC2::EIP
+  TargetGroup:
+    Properties:
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 3
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      UnhealthyThresholdCount: 5
+      VpcId:
+        Ref: VpcId
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup

@@ -1,0 +1,190 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS CloudFormation Sample Template SNSToSQS: This Template creates an
+  SNS topic that can send messages to two SQS queues with appropriate permissions
+  for one IAM user to publish to the topic and another to read messages from the queues.
+  MySNSTopic is set up to publish to two subscribed endpoints, which are two SQS queues
+  (MyQueue1 and MyQueue2). MyPublishUser is an IAM user that can publish to MySNSTopic
+  using the Publish API. MyTopicPolicy assigns that permission to MyPublishUser. MyQueueUser
+  is an IAM user that can read messages from the two SQS queues. MyQueuePolicy assigns
+  those permissions to MyQueueUser. It also assigns permission for MySNSTopic to publish
+  its notifications to the two queues. The template creates access keys for the two
+  IAM users with MyPublishUserKey and MyQueueUserKey. ***Warning*** you will be billed
+  for the AWS resources used if you create a stack from this template.'
+Outputs:
+  MyPublishUserInfo:
+    Description: Information for publisher
+    Value:
+      Fn::Join:
+      - ' '
+      - - 'ARN:'
+        - Fn::GetAtt:
+          - MyPublishUser
+          - Arn
+        - 'Access Key:'
+        - Ref: MyPublishUserKey
+        - 'Secret Key:'
+        - Fn::GetAtt:
+          - MyPublishUserKey
+          - SecretAccessKey
+  MyQueue1Info:
+    Description: Queue1 details
+    Value:
+      Fn::Join:
+      - ' '
+      - - 'ARN:'
+        - Fn::GetAtt:
+          - MyQueue1
+          - Arn
+        - 'URL:'
+        - Ref: MyQueue1
+  MyQueue2Info:
+    Description: Queue2 details
+    Value:
+      Fn::Join:
+      - ' '
+      - - 'ARN:'
+        - Fn::GetAtt:
+          - MyQueue2
+          - Arn
+        - 'URL:'
+        - Ref: MyQueue2
+  MyQueueUserInfo:
+    Description: Information for consumer
+    Value:
+      Fn::Join:
+      - ' '
+      - - 'ARN:'
+        - Fn::GetAtt:
+          - MyQueueUser
+          - Arn
+        - 'Access Key:'
+        - Ref: MyQueueUserKey
+        - 'Secret Key:'
+        - Fn::GetAtt:
+          - MyQueueUserKey
+          - SecretAccessKey
+  MySNSTopicTopicARN:
+    Description: Topic ARN of newly created SNS topic
+    Value:
+      Ref: MySNSTopic
+Parameters:
+  MyPublishUserPassword:
+    AllowedPattern: '[a-zA-Z0-9]*'
+    ConstraintDescription: must contain only alphanumeric characters.
+    Description: Password for the IAM user MyPublishUser
+    MaxLength: '41'
+    MinLength: '1'
+    NoEcho: 'true'
+    Type: String
+  MyQueueUserPassword:
+    ConstraintDescription: password must be between 1 and 41 characters.
+    Description: Password for the IAM user MyQueueUser
+    MaxLength: '41'
+    MinLength: '1'
+    NoEcho: 'true'
+    Type: String
+Resources:
+  AddUserToMyPublishTopicGroup:
+    Properties:
+      GroupName:
+        Ref: MyPublishTopicGroup
+      Users:
+      - Ref: MyPublishUser
+    Type: AWS::IAM::UserToGroupAddition
+  AddUserToMyQueueGroup:
+    Properties:
+      GroupName:
+        Ref: MyRDMessageQueueGroup
+      Users:
+      - Ref: MyQueueUser
+    Type: AWS::IAM::UserToGroupAddition
+  MyPublishTopicGroup:
+    Properties:
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - sns:Publish
+            Effect: Allow
+            Resource:
+              Ref: MySNSTopic
+        PolicyName: MyTopicGroupPolicy
+    Type: AWS::IAM::Group
+  MyPublishUser:
+    Properties:
+      LoginProfile:
+        Password:
+          Ref: MyPublishUserPassword
+    Type: AWS::IAM::User
+  MyPublishUserKey:
+    Properties:
+      UserName:
+        Ref: MyPublishUser
+    Type: AWS::IAM::AccessKey
+  MyQueue1:
+    Type: AWS::SQS::Queue
+  MyQueue2:
+    Type: AWS::SQS::Queue
+  MyQueuePolicy:
+    Properties:
+      PolicyDocument:
+        Id: MyQueuePolicy
+        Statement:
+        - Action:
+          - sqs:SendMessage
+          Condition:
+            ArnEquals:
+              aws:SourceArn:
+                Ref: MySNSTopic
+          Effect: Allow
+          Principal:
+            AWS: '*'
+          Resource: '*'
+          Sid: Allow-SendMessage-To-Both-Queues-From-SNS-Topic
+      Queues:
+      - Ref: MyQueue1
+      - Ref: MyQueue2
+    Type: AWS::SQS::QueuePolicy
+  MyQueueUser:
+    Properties:
+      LoginProfile:
+        Password:
+          Ref: MyQueueUserPassword
+    Type: AWS::IAM::User
+  MyQueueUserKey:
+    Properties:
+      UserName:
+        Ref: MyQueueUser
+    Type: AWS::IAM::AccessKey
+  MyRDMessageQueueGroup:
+    Properties:
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - sqs:DeleteMessage
+            - sqs:ReceiveMessage
+            Effect: Allow
+            Resource:
+            - Fn::GetAtt:
+              - MyQueue1
+              - Arn
+            - Fn::GetAtt:
+              - MyQueue2
+              - Arn
+        PolicyName: MyQueueGroupPolicy
+    Type: AWS::IAM::Group
+  MySNSTopic:
+    Properties:
+      Subscription:
+      - Endpoint:
+          Fn::GetAtt:
+          - MyQueue1
+          - Arn
+        Protocol: sqs
+      - Endpoint:
+          Fn::GetAtt:
+          - MyQueue2
+          - Arn
+        Protocol: sqs
+    Type: AWS::SNS::Topic
