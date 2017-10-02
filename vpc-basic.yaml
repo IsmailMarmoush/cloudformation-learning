@@ -13,33 +13,68 @@ Resources:
 # Standard format is:
 # Name:
 #   Properties: Values of Properties
-#     
-
-
+# Types are the objects AWS knows about, the Names are mostly up to you within reason.
   VPC:
 #Each resource has a type. http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html
     Type: AWS::EC2::VPC
 # Properties describe features of each of the Resources. Some have default values wheter or not you include them.
 # See http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc.html for EC2
-# Types are the objects AWS knows about, the Names are mostly up to you within reason.
+
     Properties:
       CidrBlock: 10.100.0.0/16
       EnableDnsHostnames: true
+#Tag Items to add tags when deployed. - Key for first line, the dash isn't needed for 2nd line but double space indent.
       Tags:
       - Key: Name
         Value: rp's VPC - Wow
-        
+
+#Some items don't need any additional bits to them, simply Define them and AWS knows what to do wit hthe rest. I'm adding an optional tag here.         
   InternetGateway:
-    Type: AWS::EC2::InternetGateway
-    Properties:
-      Tags:
-      - Key: Name
-        Value: rp's gateway
-    
+  Type: AWS::EC2::InternetGateway
+  Properties:
+    Tags:
+    - Key: Name
+      Value: rp's gateway
+
+#This attachment doesn't have tags. 
+# It references other items only. You would do this if a resource doesn't need to be confgiured itself but inherits its properties from what it's attached to.
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
-    
-    
+
+# 
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.100.1.0/24
+      AvailabilityZone: !Select
+        - '0'
+        - !GetAZs ''
+      Tags:
+        - Key: Name
+          Value: Public Subnet 1
+   
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: Public Route Table
+          
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      
+  PublicSubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+        
